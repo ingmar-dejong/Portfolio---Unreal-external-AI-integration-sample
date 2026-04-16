@@ -1,8 +1,8 @@
 // Copyright Unchained.
 
-#include "ExternalAIConsumerComponent.h"
+#include "AI/ExternalAIConsumerComponent.h"
 
-#include "ExternalAISubsystem.h"
+#include "AI/ExternalAISubsystem.h"
 #include "Engine/GameInstance.h"
 #include "GameFramework/Actor.h"
 
@@ -60,6 +60,7 @@ FString UExternalAIConsumerComponent::RequestAIUpdate(const int32 PlayerReputati
 	RequestData.Location = ResolveLocationString(Location);
 	RequestData.bActiveAlert = bActiveAlert;
 	RequestData.AdditionalContextJson = AdditionalContextJson;
+	RequestData.DefaultMood = DefaultMood;
 
 	LastRequestId = ExternalAISubsystem->RequestNPCDecision(RequestData);
 	LastErrorMessage.Reset();
@@ -107,6 +108,11 @@ FString UExternalAIConsumerComponent::ResolveLocationString(const FString& Expli
 	if (!ExplicitLocation.IsEmpty())
 	{
 		return ExplicitLocation;
+	}
+
+	if (!DefaultLocation.IsEmpty())
+	{
+		return DefaultLocation;
 	}
 
 	if (const AActor* Owner = GetOwner())

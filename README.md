@@ -1,98 +1,95 @@
-# Unreal External AI Dialogue Sample
+# Unreal External AI Integration Sample
 
-Small Unreal Engine sample that shows how an NPC can request an external AI state and expose the result inside gameplay and dialogue.
-
-At the current stage, the sample can:
-- send an AI update request for an NPC
-- receive a response from a local backend
-- store values such as mood, threat score, recommended action, and reply text
-- display that data in gameplay or Narrative dialogue
-
-## Current Result
-
-The current in-editor test proves that an NPC can expose its current mood through dialogue.
-
-Example values returned by the sample backend:
-- `calm`
-- `suspicious`
-- `aggressive`
-
-The same response also includes:
-- `reply_text`
-- `recommended_action`
-- `threat_score`
+NPC requests a decision from Claude, gets back mood and reply text, says it in dialogue widget.
 
 ## Demo Video
 
-Demo video:
-- https://onedrive.live.com/?id=%2Fpersonal%2F9d9f3cd318aeacbc%2FDocuments%2FPortfolio%2FUnreal%2Dexternal%2DAI%2Dintegration%2Dsample&view=0
+https://1drv.ms/f/c/9d9f3cd318aeacbc/IgB9Ayrng5_6TpWXUGxpQBMrAach5-tBwzFf9fG-75oS9Oo?e=qqlv7x
 
-In the video, the player asks the NPC what her mood is. The NPC answers using the current value returned by the sample backend, which is currently hard coded to values such as `calm`.
+The player asks the NPC what her mood is. The NPC answers using a live response from Claude, generated based on her identity, location, base mood, and the current game context.
 
-## System Overview
+## How it works
 
-The system is split into three parts:
+1. NPC sends game context to a local Node.js backend
+2. Backend calls Claude, gets back mood/threat/action/reply
+3. NPC stores the result on `ExternalAIConsumerComponent`
+4. Dialogue reads `LastReplyText` via `{AIReply}`
 
-1. Unreal request layer
-   - `ExternalAISubsystem.h/.cpp`
-   - Sends HTTP requests and parses the backend response.
+## Parts
 
-2. NPC-facing gameplay layer
-   - `ExternalAIConsumerComponent.h/.cpp`
-   - Lives on an NPC actor.
-   - Requests updates through the subsystem.
-   - Stores the latest AI state in Blueprint-readable properties such as `CurrentMood` and `LastReplyText`.
+**`ExternalAISubsystem`** — one instance per game session, handles HTTP + mock mode, broadcasts results via delegate
 
-3. Local backend
-   - `server.js`
-   - Returns mock AI behavior based on simple inputs like reputation, alert state, location, and extra context.
+**`ExternalAIConsumerComponent`** — on the NPC, calls `RequestAIUpdate()`, filters by RequestId so multiple NPCs don't mix up responses, fires `OnAIStateUpdated` when done
 
-## Dialogue Integration
+**`server.js`** — Node backend on port 8080, builds prompt from game context, calls Claude, validates response before returning
 
-The dialogue side works by reading values that were already fetched and stored on the NPC component.
+## Design Choices
 
-Typical flow:
+**Why a subsystem?** Central layer, no scattered HTTP code in every NPC. Reusable, easy to replace.
 
-1. An interaction or event calls `RequestAIUpdate(...)` on the NPC's `ExternalAIConsumerComponent`.
-2. The component sends the request through `UExternalAISubsystem`.
-3. The backend returns a response.
-4. The component stores the result in:
-   - `CurrentMood`
-   - `CurrentThreatScore`
-   - `LastRecommendedAction`
-   - `LastReplyText`
-5. Dialogue reads those values and injects them into text placeholders.
+**Why async?** HTTP calls take tens of milliseconds. The game thread must never block, that would cause visible hitches.
 
-This means dialogue is currently reading AI state, not generating it on the spot.
+**Why RequestId filtering?** Multiple NPCs can send requests at the same time. Without filtering, every NPC could react to every response.
 
-## Backend Behavior
+**Why a backend between Unreal and the model?** API keys shouldn't be in a client build. The backend validates and normalizes AI output before Unreal receives it.
 
-The included Node backend is intentionally simple. It reacts to:
-- player reputation
-- active alert state
-- location
-- optional context such as `quest_state`
+**Why "AI advises, Unreal decides"?** AI output can sometimes be unpredictable or invalid. Unreal maps it to a whitelist of known gameplay actions to keep things stable.
 
-Based on that input it returns a lightweight NPC decision, for example:
-- calm + ignore
-- suspicious + warn player
-- aggressive + raise alarm
+## NPC setup
+
+```
+NpcIdOverride         = Jane
+DefaultLocation       = Old Farm
+DefaultMood           = Tired
+AdditionalContextJson = {"npc_description": "You are Jane. A farmer who lived at this farm her whole life. You are calm but firm."}
+```
+
+Claude gets: who the NPC is, her description, her base mood, and the current situation.
+
+## Dialogue integration
+
+In the Narrative dialogue asset, override `GetStringVariable`:
+
+```
+GetNPCExternalAIConsumerFromDialogue(self, Node)
+→ Is Valid?
+    True  → VariableName == "AIReply"? → Return LastReplyText
+    False → Return Parent GetStringVariable
+```
+
+`GetNPCExternalAIConsumerFromDialogue` finds the NPC by iterating `Dialogue->Speakers` and checking `SpeakerAvatar` for an `ExternalAIConsumerComponent`. Bypasses SpeakerID lookup which is unreliable during variable resolution.
+
+Put `{AIReply}` in the NPC dialogue node text.
+
+## Project Settings
+
+**Edit → Project Settings → Game → External AI**
+- `Use Mock Responses` — false to use Claude
+- `Endpoint Url` — `http://127.0.0.1:8080/api/npc/decision`
+
+## Backend setup
+
+```
+
+copy .env.example .env   # fill in ANTHROPIC_API_KEY
+node start
+```
+
+## Test (PowerShell)
+
+```powershell
+$uri = "http://127.0.0.1:8080/api/npc/decision"
+$body = '{"npc_id": "Jane", "player_reputation": 0, "location": "Old Farm", "active_alert": false, "default_mood": "Tired", "context": {"npc_description": "You are Jane. A farmer who lived at this farm her whole life. You are calm but firm."}}'
+Invoke-RestMethod -Method Post -Uri $uri -ContentType "application/json" -Body $body
+```
 
 ## Files
 
-- `ExternalAISubsystem.h/.cpp`: HTTP request/response layer
-- `ExternalAIConsumerComponent.h/.cpp`: NPC component that stores the latest AI state
-- `ExternalAIIntegrationTypes.h`: request and response structs
-- `ExternalAISettings.h`: settings for the integration
-- `server.js`: local sample backend
-- `package.json`: backend start script
-
-## Running The Backend
-
-By default the backend runs on `http://127.0.0.1:8080`.
-
-Available routes:
-- `GET /health`
-- `POST /api/npc/decision`
-
-
+| File | What |
+|---|---|
+| `ExternalAISubsystem.h/.cpp` | HTTP layer |
+| `ExternalAIConsumerComponent.h/.cpp` | NPC component |
+| `ExternalAIIntegrationTypes.h` | Request/response structs |
+| `ExternalAISettings.h` | Project Settings config |
+| `server.js` | Claude backend |
+| `.env.example` | API key template |

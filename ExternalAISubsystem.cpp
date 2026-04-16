@@ -1,8 +1,8 @@
 // Copyright Unchained.
 
-#include "ExternalAISubsystem.h"
+#include "AI/ExternalAISubsystem.h"
 
-#include "ExternalAISettings.h"
+#include "AI/ExternalAISettings.h"
 #include "Dom/JsonObject.h"
 #include "HttpModule.h"
 #include "Interfaces/IHttpRequest.h"
@@ -92,6 +92,7 @@ void UExternalAISubsystem::CompleteMockRequest(const FString& RequestId, const F
 			BroadcastResult(RequestId, Response, true, FString());
 		});
 
+		FTimerHandle TimerHandle;
 		World->GetTimerManager().SetTimerForNextTick(MockCallback);
 		return;
 	}
@@ -138,6 +139,11 @@ TSharedPtr<FJsonObject> UExternalAISubsystem::BuildRequestJson(const FExternalAI
 	JsonObject->SetNumberField(TEXT("player_reputation"), RequestData.PlayerReputation);
 	JsonObject->SetStringField(TEXT("location"), RequestData.Location);
 	JsonObject->SetBoolField(TEXT("active_alert"), RequestData.bActiveAlert);
+
+	if (!RequestData.DefaultMood.IsEmpty())
+	{
+		JsonObject->SetStringField(TEXT("default_mood"), RequestData.DefaultMood);
+	}
 
 	if (!RequestData.AdditionalContextJson.IsEmpty())
 	{

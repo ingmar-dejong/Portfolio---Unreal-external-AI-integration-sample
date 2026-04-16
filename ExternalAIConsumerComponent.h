@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ExternalAIIntegrationTypes.h"
+#include "AI/ExternalAIIntegrationTypes.h"
 #include "Components/ActorComponent.h"
 #include "ExternalAIConsumerComponent.generated.h"
 
@@ -26,6 +26,15 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "External AI")
 	FString NpcIdOverride;
+
+	// Locatie die naar de AI wordt gestuurd. Valt terug op actor world position als leeg.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "External AI")
+	FString DefaultLocation;
+
+	// Basis mood/stemming van de NPC. Stuurt Claude's response zonder hem te forceren.
+	// Voorbeelden: "Tired", "Suspicious", "Cheerful", "Grieving"
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "External AI")
+	FString DefaultMood;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "External AI")
 	FString LastRequestId;

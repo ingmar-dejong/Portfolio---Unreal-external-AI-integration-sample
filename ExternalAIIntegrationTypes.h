@@ -24,6 +24,11 @@ struct UNCHAINED_API FExternalAIRequest
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "External AI")
 	FString AdditionalContextJson;
+
+	// Base mood/demeanor set by the developer. Guides Claude's response without overriding it.
+	// Examples: "Tired", "Suspicious", "Cheerful", "Grieving"
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "External AI")
+	FString DefaultMood;
 };
 
 USTRUCT(BlueprintType)
