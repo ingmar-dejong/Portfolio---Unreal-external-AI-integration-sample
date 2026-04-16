@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Unreal External AI Integration Sample
 
 NPC requests a decision from Claude, gets back mood and reply text, says it in dialogue widget.
