@@ -95,4 +95,11 @@ Available routes:
 - `GET /health`
 - `POST /api/npc/decision`
 
+## Design Choises
+Why a subsystem? Central layer, no scattered HTTP code in every NPC. Reusable, easy to replace.
+Why async? HTTP calls take tens of milliseconds. The game thread must never block, that would/could cause visible hitches.
+Why RequestId filtering? Multiple NPCs can send requests at the same time. Without filtering, every NPC could react to every response.
+Why a backend between Unreal and the model? API keys shouldn’t be in a client build. The backend validates and normalizes AI output before Unreal receives it.
+Why “AI advises, Unreal decides”? AI output can sometimes be unpredictable or invalid. Unreal maps it to a whitelist of known gameplay actions to keep things stable.
+
 
